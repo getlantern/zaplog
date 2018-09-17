@@ -9,7 +9,7 @@ import (
 func TestBasicLogging(t *testing.T) {
 	SetZapConfig(zap.NewDevelopmentConfig())
 
-	log := ZapLogger("tester")
+	log := LoggerFor("tester")
 	log.Error("test")
 
 	log.Errorf("Error %v", "bop")
