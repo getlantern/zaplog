@@ -1,7 +1,9 @@
 package zaplog
 
 import (
+	"os"
 	"sync"
+	"sync/atomic"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -19,7 +21,8 @@ var (
 	hookFuncs  []Hook
 	hooksMutex sync.RWMutex
 
-	hooks = make(chan func(), 1000)
+	hooks   = make(chan func(), 1000)
+	onFatal atomic.Value
 )
 
 // Hook is a function to which the logger will report logs.
@@ -39,9 +42,17 @@ func LoggerFor(prefix string) *zap.SugaredLogger {
 			if entry.Level < zapcore.WarnLevel {
 				return nil
 			}
-			hook(entry)
+			if entry.Level == zapcore.FatalLevel {
+				fn := onFatal.Load().(func())
+				fn()
+			} else {
+				hook(entry)
+			}
 			return nil
 		}))
+		onFatal.Store(func() {
+			os.Exit(1)
+		})
 		// Make sure our wrapper code isn't what always shows up as the caller.
 		zlog = baseLog.Sugar()
 		go processHooks()
@@ -61,6 +72,12 @@ func Close() {
 		zlog.Sync()
 	}
 	close(hooks)
+}
+
+// OnFatal configures golog to call the given function on any FATAL error. By
+// default, golog calls os.Exit(1) on any FATAL error.
+func OnFatal(fn func()) {
+	onFatal.Store(fn)
 }
 
 // AddWarnHook registers the given Hook that will be called for warn level logs or above.
