@@ -14,7 +14,7 @@ type wrappedLogger struct {
 }
 
 var (
-	zapConfig = zap.NewProductionConfig()
+	zapConfig atomic.Value
 	zlog      *zap.SugaredLogger
 	once      sync.Once
 
@@ -31,13 +31,17 @@ type Hook func(entry zapcore.Entry) error
 // SetZapConfig allows users to customize the configuration. Note this must be called before
 // any logging takes place -- it will not reset the configuration of an existing logger.
 func SetZapConfig(config zap.Config) {
-	zapConfig = config
+	zapConfig.Store(config)
 }
 
 // LoggerFor creates a new zap logger with the specified name.
 func LoggerFor(prefix string) *zap.SugaredLogger {
 	once.Do(func() {
-		baseLog, _ := zapConfig.Build()
+		conf := zapConfig.Load()
+		if conf == nil {
+			zapConfig.Store(zap.NewProductionConfig())
+		}
+		baseLog, _ := zapConfig.Load().(zap.Config).Build()
 		baseLog = baseLog.WithOptions(zap.Hooks(func(entry zapcore.Entry) error {
 			if entry.Level < zapcore.WarnLevel {
 				return nil
