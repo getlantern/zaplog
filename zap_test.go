@@ -2,13 +2,9 @@ package zaplog
 
 import (
 	"testing"
-
-	"go.uber.org/zap"
 )
 
 func TestBasicLogging(t *testing.T) {
-	SetZapConfig(zap.NewDevelopmentConfig())
-
 	log := LoggerFor("tester")
 	log.Error("test")
 
